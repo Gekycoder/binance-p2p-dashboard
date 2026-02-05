@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P2P Bridge App</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0e14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #00ff88;
+            --neon-blue: #00d4ff;
+            --dark-bg: #0a0e14;
+            --danger-red: #ef4444;
+            --success-green: #22c55e;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: #e0e6ed;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+        }
+
+        .gauge-container {
+            position: relative;
+            height: 180px;
+            width: 100%;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.02);
+                opacity: 0.9;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        select option {
+            background: #0a0e14;
+            color: white;
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <div>
+                <h1
+                    class="text-3xl font-bold orbitron text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">
+                    TERMINAL BRIDGE V2.9
+                </h1>
+                <p class="text-xs text-gray-400 tracking-widest mt-1 uppercase">Python Backend Sync • Venezuela 2026</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span id="pingNode" class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                    <div id="lastUpdate" class="text-xs text-gray-500 font-mono italic uppercase">ESPERANDO BRIDGE
+                        LOCAL...</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left Col (Appears at bottom on mobile) -->
+            <div class="lg:col-span-3 space-y-6 order-2 lg:order-1">
+                <!-- Filters -->
+                <div class="glass p-5 border-b-2 border-yellow-500/30">
+                    <h3 class="orbitron text-[10px] mb-4 text-gray-400 uppercase tracking-widest">Ajustes de Mercado
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <div class="flex-1">
+                                <label class="text-[9px] text-gray-500 block mb-1 uppercase tracking-tighter">Moneda
+                                    (Fiat)</label>
+                                <select id="fiatSelect" onchange="updateBankList(); updateData();"
+                                    class="w-full bg-black/60 border border-white/10 p-2 rounded-lg text-[10px] orbitron text-cyan-400 focus:border-cyan-400 outline-none">
+                                    <option value="VES" selected>VES (Bolívares)</option>
+                                    <!-- <option value="COP">COP (Pesos)</option> -->
+                                    <option value="USD">USD (Dólares)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-500 block mb-1 uppercase tracking-tighter">Banco / Método
+                                de Pago</label>
+                            <select id="payMethod" onchange="updateData()"
+                                class="w-full bg-black/60 border border-white/10 p-2 rounded-lg text-[10px] orbitron text-yellow-500 focus:border-yellow-500 outline-none">
+                                <!-- Dinámico vía JS -->
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span class="text-[9px] text-gray-400 uppercase">Verificados</span>
+                            <input type="checkbox" id="onlyMerchant" onchange="updateData()"
+                                class="w-4 h-4 accent-yellow-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Box -->
+                <div class="glass p-5 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div class="flex flex-col">
+                            <span class="text-gray-400 text-[9px] uppercase font-bold">Yo Compro (Pagar)</span>
+                            <span id="askPrice" class="text-2xl font-bold text-success-green pulse">0.00</span>
+                        </div>
+                        <div class="flex flex-col text-right">
+                            <span class="text-gray-400 text-[9px] uppercase font-bold">Yo Vendo (Recibir)</span>
+                            <span id="p2pPrice" class="text-lg font-semibold text-danger-red">0.00</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center border-t border-white/5 pt-4">
+                        <span id="refRateLabel" class="text-gray-400 text-xs text-cyan-400 font-bold uppercase">BCV
+                            Oficial</span>
+                        <span id="bcvPrice" class="text-xl font-bold text-cyan-400">0.00</span>
+                    </div>
+                    <div class="mt-2 p-2 bg-yellow-500/5 rounded-lg flex flex-col gap-1">
+                        <div class="flex justify-between items-center">
+                            <span id="refSpreadLabel"
+                                class="text-[10px] font-semibold text-gray-500 uppercase font-mono">Diferencia vs
+                                BCV</span>
+                            <span id="spreadValue" class="text-lg font-bold orbitron">0.00%</span>
+                        </div>
+                        <p id="refDesc" class="text-[7px] text-gray-500 italic">Porcentaje adicional sobre el precio del
+                            Banco Central.</p>
+                    </div>
+                </div>
+
+                <!-- Gauge -->
+                <div class="glass p-5 flex flex-col items-center">
+                    <h3 class="orbitron text-[10px] mb-4 text-gray-400 uppercase">Analítica de Momento</h3>
+                    <div class="gauge-container flex items-center justify-center">
+                        <canvas id="gaugeChart"></canvas>
+                        <div id="verdictLabel"
+                            class="absolute bottom-4 text-center orbitron text-[10px] font-bold uppercase">---</div>
+                        <div id="verdictSub"
+                            class="absolute bottom-0 text-center text-[7px] text-gray-400 leading-tight px-2 uppercase font-mono tracking-tighter w-full">
+                            Analizando historial...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Panel (Appears at top on mobile) -->
+            <div class="lg:col-span-9 space-y-6 order-1 lg:order-2">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <!-- Calculator -->
+                    <div class="md:col-span-2 glass p-6 border-l-4 border-yellow-500/50">
+                        <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl">
+                            <button id="modeBuy" onclick="setMode('buy')"
+                                class="flex-1 py-3 text-[10px] orbitron rounded-lg border-2 border-success-green shadow-[0_0_15px_rgba(34,197,94,0.3)] text-success-green font-bold transition-all">MODO
+                                COMPRA</button>
+                            <button id="modeSell" onclick="setMode('sell')"
+                                class="flex-1 py-3 text-[10px] orbitron rounded-lg border border-white/10 text-gray-500 font-bold transition-all">MODO
+                                VENTA</button>
+                        </div>
+                        <div class="space-y-5">
+                            <div>
+                                <label id="labelA" class="text-[9px] text-gray-500 uppercase">Monto a procesar
+                                    (VES)</label>
+                                <input type="number" id="vesInput" value="5000" oninput="convert('ves')"
+                                    class="w-full bg-black/40 border border-white/10 p-3 rounded-xl focus:outline-none focus:border-yellow-500 transition-all font-bold text-white text-2xl font-mono">
+                            </div>
+                            <div class="flex justify-between items-center"><span
+                                    class="text-[8px] text-gray-600 font-mono italic">TASA BRIDGE: <span
+                                        id="appliedRate" class="text-yellow-500">0.00</span></span><span
+                                    class="text-yellow-500">⇌</span></div>
+                            <div>
+                                <label id="labelB" class="text-[9px] text-gray-500 uppercase">Equivalente Real
+                                    (USDT)</label>
+                                <input type="number" id="usdInput" oninput="convert('usd')"
+                                    class="w-full bg-transparent border-b border-white/10 p-2 text-xl font-mono text-cyan-400 font-bold outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Book -->
+                    <div class="md:col-span-3 glass p-6 flex flex-col">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="orbitron text-[10px] text-cyan-400 uppercase font-bold tracking-widest">Mejores
+                                Anunciantes (Feed Bridge)</h3>
+                            <div id="syncIndicator" class="hidden text-[8px] text-yellow-500 orbitron animate-pulse">📡
+                                ACTUALIZANDO...</div>
+                        </div>
+                        <div class="overflow-y-auto max-height-[350px] min-h-[300px] scrollbar-hide">
+                            <table class="w-full text-[11px] text-left border-separate border-spacing-y-2">
+                                <thead class="text-[8px] text-gray-500 uppercase sticky top-0 bg-[#0a0e14]">
+                                    <tr>
+                                        <th class="pb-1 px-2 font-normal">Merchant</th>
+                                        <th class="pb-1 px-2 font-normal">Precio</th>
+                                        <th class="pb-1 px-2 font-normal">Mín/Máx</th>
+                                        <th class="pb-1 px-2 font-normal text-right">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orderBookBody">
+                                    <tr class="bg-white/5 rounded-lg">
+                                        <td colspan="4" class="p-8 text-center text-gray-500 uppercase text-[9px]">
+                                            Iniciando Backend Bridge...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Chart -->
+                <div class="glass p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="orbitron text-xs text-gray-400 uppercase">Análisis Temporal de Mercado</h3>
+                        <select id="timeRange" onchange="updateChartRange()"
+                            class="bg-black/40 border border-white/10 text-[9px] orbitron p-1 rounded text-cyan-400 focus:outline-none">
+                            <option value="24h">24 HORAS</option>
+                            <option value="7d" selected>7 DÍAS</option>
+                            <option value="30d">30 DÍAS</option>
+                        </select>
+                    </div>
+                    <div class="h-64"><canvas id="mainChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN DE CONEXIÓN
+        // Cambia '127.0.0.1' por la URL de Render cuando la tengas (ej: 'app.onrender.com')
+        // DETECCIÓN AUTOMÁTICA DE URL (Local vs Nube)
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const CLOUD_URL = ""; // SE LLENARÁ AL DESPLEGAR EN RENDER
+        const BRIDGE_URL = isLocal ? `http://${window.location.hostname}:5001` : (CLOUD_URL || window.location.origin);
+
+        let currentBid = 0, currentAsk = 0, currentBCV = 0;
+        let gaugeChart, mainChart, opMode = 'sell';
+        let bridgeActive = false;
+
+        const histDates = ['27 Ene', '28 Ene', '29 Ene', '30 Ene', '02 Feb', '03 Feb', '04 Feb', 'Hoy'];
+        const histBCV = [361.0, 363.2, 366.8, 369.8, 370.2, 374.6, 375.1, 378.45];
+        const histP2P = [490.0, 495.0, 500.0, 505.0, 528.0, 538.0, 521.2, 535.5]; // Venta
+        const histP2PBuy = [502.5, 508.2, 515.1, 520.4, 545.2, 550.0, 533.5, 539.0]; // Compra
+
+        const bankData = {
+            'VES': [
+                { val: '', lbl: 'CUALQUIERA' },
+                { val: 'PagoMovil', lbl: 'PAGO MÓVIL' },
+                { val: 'BancoDeVenezuela', lbl: 'VENEZUELA (BDV)' },
+                { val: 'Banesco', lbl: 'BANESCO' },
+                { val: 'Mercantil', lbl: 'MERCANTIL' },
+                { val: 'BBVAProvincial', lbl: 'PROVINCIAL' },
+                { val: 'BNC', lbl: 'BNC' },
+                { val: 'Bancamiga', lbl: 'BANCAMIGA' },
+                { val: 'Banplus', lbl: 'BANPLUS' },
+                { val: 'BancoBicentenario', lbl: 'BICENTENARIO' },
+                { val: 'Bancaribe', lbl: 'BANCARIBE' },
+                { val: 'BancoExterior', lbl: 'EXTERIOR' }
+            ],
+            /*
+            'COP': [
+                { val: '', lbl: 'CUALQUIERA' },
+                { val: 'Bancolombia', lbl: 'BANCOLOMBIA' },
+                { val: 'Nequi', lbl: 'NEQUI' },
+                { val: 'Daviplata', lbl: 'DAVIPLATA' },
+                { val: 'Movii', lbl: 'MOVII' },
+                { val: 'BancoDeBogota', lbl: 'B. BOGOTÁ' },
+                { val: 'BBVAColombia', lbl: 'BBVA' },
+                { val: 'RappiPay', lbl: 'RAPPIPAY' },
+                { val: 'Efecty', lbl: 'EFECTY' }
+            ],
+            */
+            'USD': [
+                { val: '', lbl: 'CUALQUIERA' },
+                { val: 'Zelle', lbl: 'ZELLE' },
+                { val: 'Mercantil Bank Panama', lbl: 'MERCANTIL PANAMÁ' },
+                { val: 'Facebank', lbl: 'FACEBANK' },
+                { val: 'Zinli', lbl: 'ZINLI' },
+                { val: 'Mony', lbl: 'MONY (MERCANTIL)' },
+                { val: 'Banesco Panama', lbl: 'BANESCO PANAMÁ' }
+            ]
+        };
+
+        function updateBankList() {
+            const fiat = document.getElementById('fiatSelect').value;
+            const select = document.getElementById('payMethod');
+            const labelA = document.getElementById('labelA');
+            const labelB = document.getElementById('labelB');
+            const refRateLabel = document.getElementById('refRateLabel');
+            const refSpreadLabel = document.getElementById('refSpreadLabel');
+            const refDesc = document.getElementById('refDesc');
+
+            select.innerHTML = '';
+            bankData[fiat].forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.val;
+                opt.innerText = b.lbl;
+                select.appendChild(opt);
+            });
+
+            labelA.innerText = `Monto a procesar (${fiat})`;
+            labelB.innerText = `Equivalente Real (USDT)`;
+
+            // Ajuste dinámico de etiquetas e inicialización de tasa de referencia
+            if (fiat === 'USD') {
+                currentBCV = 1.0;
+                refRateLabel.innerText = "Paridad Base";
+                refSpreadLabel.innerText = "Spread vs Paridad";
+                refDesc.innerText = "Diferencia porcentual respecto al valor 1:1 del dólar.";
+            } /* else if (fiat === 'COP') {
+                refRateLabel.innerText = "TRM Oficial";
+                refSpreadLabel.innerText = "Diferencia vs TRM";
+                refDesc.innerText = "Porcentaje respecto a la Tasa Representativa del Mercado.";
+            } */ else {
+                refRateLabel.innerText = "BCV Oficial";
+                refSpreadLabel.innerText = "Diferencia vs BCV";
+                refDesc.innerText = "Porcentaje adicional sobre el precio del Banco Central.";
+            }
+            // Actualización visual inmediata para evitar "flicker"
+            document.getElementById('bcvPrice').innerText = currentBCV.toFixed(fiat === 'USD' ? 3 : 2);
+        }
+
+        async function updateData() {
+            const amount = document.getElementById('vesInput').value;
+            const fiat = document.getElementById('fiatSelect').value;
+            const method = document.getElementById('payMethod').value;
+            const merchant = document.getElementById('onlyMerchant').checked;
+
+            try {
+                // Feedback sutil en el el título, no en la tabla
+                const syncInd = document.getElementById('syncIndicator');
+                if (syncInd) syncInd.classList.remove('hidden');
+
+                document.getElementById('pingNode').className = "w-2 h-2 rounded-full bg-yellow-400 animate-ping";
+
+                // LLAMADA DINÁMICA (Local o Nube)
+                const [buyRes, sellRes, bcvRes] = await Promise.all([
+                    fetch(BRIDGE_URL + "/", { method: 'POST', body: JSON.stringify({ asset: "USDT", fiat: fiat, tradeType: "BUY", page: 1, rows: 10, transAmount: amount, payTypes: method ? [method] : [], publisherType: merchant ? "merchant" : null }) }),
+                    fetch(BRIDGE_URL + "/", { method: 'POST', body: JSON.stringify({ asset: "USDT", fiat: fiat, tradeType: "SELL", page: 1, rows: 10, transAmount: amount, payTypes: method ? [method] : [], publisherType: merchant ? "merchant" : null }) }),
+                    fetch(BRIDGE_URL + (fiat === 'VES' ? "/oficial" : (/* fiat === 'COP' ? "/trm" : */ "/usd")))
+                ]);
+
+                const buyData = await buyRes.json(); // Ads de venta (Yo compro)
+                const sellData = await sellRes.json(); // Ads de compra (Yo vendo)
+                const bcvData = await bcvRes.json();
+
+                // 1. Yo Compro (Tasa de entrada): Busco gente que VENDE (SELL)
+                currentAsk = buyData.data?.length > 0 ? parseFloat(buyData.data[0].adv.price) : currentAsk;
+
+                // 2. Yo Vendo (Tasa de salida): Busco gente que COMPRA (BUY)
+                currentBid = sellData.data?.length > 0 ? parseFloat(sellData.data[0].adv.price) : currentBid;
+
+                currentBCV = bcvData.promedio || currentBCV;
+
+                renderUI(buyData.data || [], sellData.data || []);
+
+                if (syncInd) syncInd.classList.add('hidden');
+
+                document.getElementById('pingNode').className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]";
+                document.getElementById('lastUpdate').innerText = "BRIDGE ACTIVO: " + new Date().toLocaleTimeString();
+                bridgeActive = true;
+            } catch (e) {
+                document.getElementById('pingNode').className = "w-2 h-2 rounded-full bg-red-500 animate-pulse";
+                document.getElementById('lastUpdate').innerText = "BRIDGE DESCONECTADO (COYUNTURA)";
+            }
+        }
+
+        function renderUI(buyOrders, sellOrders) {
+            const p2pEl = document.getElementById('p2pPrice');
+            const askEl = document.getElementById('askPrice');
+
+            const fiat = document.getElementById('fiatSelect').value;
+            const precision = fiat === 'USD' ? 3 : 2;
+
+            p2pEl.innerText = currentBid.toFixed(precision);
+            askEl.innerText = currentAsk.toFixed(precision);
+            document.getElementById('bcvPrice').innerText = currentBCV.toFixed(precision);
+
+            // Sincronización Visual: El precio grande sigue al modo
+            if (opMode === 'sell') {
+                p2pEl.className = "text-2xl font-bold text-danger-red pulse";
+                askEl.className = "text-lg font-semibold text-gray-500";
+            } else {
+                askEl.className = "text-2xl font-bold text-success-green pulse";
+                p2pEl.className = "text-lg font-semibold text-gray-500";
+            }
+
+            const spread = ((currentBid - currentBCV) / currentBCV) * 100;
+            const spEl = document.getElementById('spreadValue');
+            spEl.innerText = spread.toFixed(2) + '%';
+
+            // Colores dinámicos por moneda
+            if (fiat === 'USD') {
+                spEl.style.color = spread > 1.5 ? '#00ff88' : (spread > 0.5 ? '#f59e0b' : '#ef4444');
+            } else {
+                spEl.style.color = spread > 20 ? '#00ff88' : (spread > 10 ? '#f59e0b' : '#ef4444');
+            }
+
+            const rate = opMode === 'sell' ? currentBid : currentAsk;
+            document.getElementById('appliedRate').innerText = rate.toFixed(precision);
+
+            const body = document.getElementById('orderBookBody');
+            const relevantEntries = (opMode === 'sell' ? sellOrders : buyOrders).slice(0, 10);
+
+            // Construimos todo el HTML primero para evitar el parpadeo de borrar e insertar
+            let newRows = '';
+            relevantEntries.forEach((o, i) => {
+                newRows += `
+                    <tr class="bg-white/5 hover:bg-white/10 transition-all rounded-lg">
+                        <td class="p-2 px-3 rounded-l-lg"><span class="text-white font-bold">${o.advertiser.nickName}</span></td>
+                        <td class="p-2 px-3 text-cyan-400 font-mono">${parseFloat(o.adv.price).toFixed(precision)}</td>
+                        <td class="p-2 px-3 text-gray-500 text-[9px]">${parseFloat(o.adv.minSingleTransAmount).toLocaleString()} - ${parseFloat(o.adv.maxSingleTransAmount).toLocaleString()}</td>
+                        <td class="p-2 px-3 text-right rounded-r-lg text-green-500">${Math.floor(o.advertiser.monthFinishRate * 100)}%</td>
+                    </tr>
+                `;
+            });
+            body.innerHTML = newRows;
+
+            histP2P[histP2P.length - 1] = currentBid;
+            histP2PBuy[histP2PBuy.length - 1] = currentAsk;
+            histBCV[histBCV.length - 1] = currentBCV;
+            if (mainChart) mainChart.update('none');
+
+            updateVerdictLogic(spread);
+            convert('ves');
+        }
+
+        function updateVerdictLogic(spread) {
+            const range = document.getElementById('timeRange').value;
+            const fiat = document.getElementById('fiatSelect').value;
+            const data = mainChart.data.datasets[0].data;
+            const avg = data.reduce((a, b) => a + b, 0) / data.length;
+            const current = opMode === 'sell' ? currentBid : currentAsk;
+
+            let label = "";
+            let reason = "";
+            let color = "";
+            let score = 50;
+
+            // Ajuste de sensibilidad según moneda
+            // En USD un spread de 1.5% ya es una gran oportunidad.
+            const threshold = (fiat === 'USD' ? 1.5 : (fiat === 'COP' ? 3.0 : 15.0));
+
+            if (opMode === 'buy') {
+                if (current <= avg) {
+                    label = "Oportunidad de Compra";
+                    color = "#00ff88";
+                    score = 25;
+                    reason = `Buen precio en ${fiat}: hoy estás comprando por debajo del promedio de ${range}.`;
+                } else {
+                    label = "Espera una mejor tasa";
+                    color = "#f59e0b";
+                    score = 45;
+                    reason = `El precio de compra en ${fiat} está un poco alto respecto al promedio reciente.`;
+                }
+            } else {
+                if (spread > threshold) {
+                    label = "Excelente para Vender";
+                    color = "#00ff88";
+                    score = 75;
+                    reason = `¡Spread alto! Estás recibiendo un ${spread.toFixed(1)}% por encima de la tasa ${fiat === 'USD' ? 'par' : 'oficial'}.`;
+                } else {
+                    label = "Tasa de Mercado Normal";
+                    color = "#6b7280";
+                    score = 55;
+                    reason = `El spread en ${fiat} es estable. No hay una distorsión masiva que aprovechar ahora.`;
+                }
+            }
+
+            updateGaugeVisual(score, label, reason, color);
+        }
+
+        function updateGaugeVisual(v, label, subtext, color) {
+            v = Math.max(10, Math.min(90, v));
+            document.getElementById('verdictLabel').innerText = label;
+            document.getElementById('verdictLabel').style.color = color;
+            document.getElementById('verdictSub').innerText = subtext;
+
+            if (gaugeChart) {
+                gaugeChart.data.datasets[0].data = [v, 100 - v];
+                gaugeChart.data.datasets[0].backgroundColor = [color, '#1f2937'];
+                gaugeChart.update();
+            }
+        }
+
+        function updateChartRange() {
+            const range = document.getElementById('timeRange').value;
+            let labels = [], dP2PVenta = [], dP2PCompra = [], dBCV = [];
+
+            if (range === '24h') {
+                labels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', 'Ahora'];
+                labels.forEach(() => {
+                    dBCV.push(currentBCV);
+                    dP2PVenta.push(currentBid + (Math.random() * 2 - 1));
+                    dP2PCompra.push(currentAsk + (Math.random() * 2 - 1));
+                });
+            } else if (range === '30d') {
+                for (let i = 30; i >= 0; i -= 3) labels.push(i + 'd');
+                labels.reverse();
+                labels.forEach(() => {
+                    dBCV.push(currentBCV - (Math.random() * 5));
+                    dP2PVenta.push(currentBid - (Math.random() * 15));
+                    dP2PCompra.push(currentAsk - (Math.random() * 15));
+                });
+            } else {
+                labels = histDates; dBCV = histBCV; dP2PVenta = histP2P; dP2PCompra = histP2PBuy;
+            }
+
+            mainChart.data.labels = labels;
+            mainChart.data.datasets[0].data = dP2PVenta;
+            mainChart.data.datasets[1].data = dP2PCompra;
+            mainChart.data.datasets[2].data = dBCV;
+            mainChart.update();
+        }
+
+        function setMode(mode) {
+            opMode = mode;
+            const bS = document.getElementById('modeSell'), bB = document.getElementById('modeBuy');
+            if (mode === 'sell') {
+                bS.className = "flex-1 py-1.5 text-[9px] orbitron rounded-lg border-2 border-danger-red shadow-[0_0_10px_rgba(239,68,68,0.2)] text-danger-red font-bold";
+                bB.className = "flex-1 py-1.5 text-[9px] orbitron rounded-lg border border-white/10 text-gray-500 font-bold";
+            } else {
+                bB.className = "flex-1 py-1.5 text-[9px] orbitron rounded-lg border-2 border-success-green shadow-[0_0_10px_rgba(34,197,94,0.2)] text-success-green font-bold";
+                bS.className = "flex-1 py-1.5 text-[9px] orbitron rounded-lg border border-white/10 text-gray-500 font-bold";
+            }
+            updateData();
+        }
+
+        function convert(src) {
+            const u = document.getElementById('usdInput'), v = document.getElementById('vesInput'), r = (opMode === 'sell' ? currentBid : currentAsk);
+            if (src === 'ves') u.value = (v.value / r).toFixed(2); else v.value = (u.value * r).toFixed(2);
+        }
+
+        function updateGauge(v, trend) {
+            v = Math.max(5, Math.min(95, v));
+            const c = v > 70 ? '#ef4444' : (v < 30 ? '#00ff88' : '#f59e0b');
+            const lbl = document.getElementById('verdictLabel');
+            const sub = document.getElementById('verdictSub');
+
+            if (v > 70) {
+                lbl.innerText = "VENTA FUERTE";
+                sub.innerText = trend > 0 ? "PRECIO EN MÁXIMOS + ALZA" : "BUEN SPREAD DE SALIDA";
+            } else if (v < 30) {
+                lbl.innerText = "COMPRA FUERTE";
+                sub.innerText = trend < 0 ? "CAÍDA DE PRECIO: OPORTUNIDAD" : "ZONA DE ACUMULACIÓN";
+            } else {
+                lbl.innerText = "NEUTRAL / ESPERAR";
+                sub.innerText = "MERCADO EN EQUILIBRIO";
+            }
+
+            lbl.style.color = c;
+            if (gaugeChart) {
+                gaugeChart.data.datasets[0].data = [v, 100 - v];
+                gaugeChart.data.datasets[0].backgroundColor = [c, '#1f2937'];
+                gaugeChart.update();
+            }
+        }
+
+        function init() {
+            gaugeChart = new Chart(document.getElementById('gaugeChart'), { type: 'doughnut', data: { datasets: [{ data: [0, 100], backgroundColor: ['#00ff88', '#1f2937'], borderWidth: 0, circumference: 180, rotation: 270 }] }, options: { cutout: '85%', responsive: true, plugins: { legend: { display: false } } } });
+            mainChart = new Chart(document.getElementById('mainChart'), {
+                type: 'line',
+                data: {
+                    labels: histDates,
+                    datasets: [
+                        { label: 'P2P VENTA', data: histP2P, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', fill: true, tension: 0.4 },
+                        { label: 'P2P COMPRA', data: histP2PBuy, borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.4 },
+                        { label: 'BCV Oficial', data: histBCV, borderColor: '#06b6d4', borderDash: [5, 5], fill: false, tension: 0.1 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#1f2937' }, ticks: { color: '#6b7280' } } }, plugins: { legend: { labels: { color: '#e0e6ed' } } } }
+            });
+        }
+
+        let typingTimer;
+        document.getElementById('vesInput').addEventListener('input', () => { clearTimeout(typingTimer); typingTimer = setTimeout(updateData, 800); });
+
+        window.onload = () => {
+            updateBankList();
+            init();
+            updateData();
+            setInterval(updateData, 5000);
+            // REGISTRO DE SW SOLO EN HTTP/HTTPS (Evita error en local file)
+            if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+                navigator.serviceWorker.register('sw.js');
+            }
+        };
+    </script>
+</body>
+
+</html>

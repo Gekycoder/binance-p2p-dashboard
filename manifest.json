@@ -1,0 +1,17 @@
+{
+    "name": "Binance P2P Arbitraje v4",
+    "short_name": "P2P Bridge",
+    "description": "Dashboard de Arbitraje P2P para Venezuela 2026",
+    "start_url": "dashboard_arbitraje.html",
+    "display": "standalone",
+    "background_color": "#0a0e14",
+    "theme_color": "#fbbf24",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2491/2491176.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
