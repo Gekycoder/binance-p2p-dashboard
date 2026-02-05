@@ -128,7 +128,7 @@
                     </div>
                     <div class="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/5">
                         <span class="text-[9px] text-gray-400 uppercase">Verificados</span>
-                        <input type="checkbox" id="onlyMerchant" onchange="updateData()"
+                        <input type="checkbox" id="onlyMerchant" onchange="updateData()" checked
                             class="w-4 h-4 accent-yellow-500">
                     </div>
                 </div>
@@ -163,75 +163,63 @@
                 </div>
             </div>
 
-            <!-- Gauge -->
-            <div data-id="gauge" class="lg:col-span-3 glass p-5 flex flex-col items-center">
-                <h3 class="orbitron text-[10px] mb-4 text-gray-400 uppercase">Analítica de Momento</h3>
-                <div class="gauge-container flex items-center justify-center">
-                    <canvas id="gaugeChart"></canvas>
-                    <div id="verdictLabel"
-                        class="absolute bottom-4 text-center orbitron text-[10px] font-bold uppercase">---</div>
-                    <div id="verdictSub"
-                        class="absolute bottom-0 text-center text-[7px] text-gray-400 leading-tight px-2 uppercase font-mono tracking-tighter w-full">
-                        Analizando historial...</div>
-                </div>
+        </div>
+    </div>
+
+    <!-- Calculator -->
+    <div data-id="calculator" class="lg:col-span-4 glass p-6 border-l-4 border-yellow-500/50">
+        <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl">
+            <button id="modeBuy" onclick="setMode('buy')"
+                class="flex-1 py-1.5 text-[9px] orbitron rounded-lg border border-white/10 text-gray-500 font-bold transition-all">MODO
+                COMPRA</button>
+            <button id="modeSell" onclick="setMode('sell')"
+                class="flex-1 py-1.5 text-[9px] orbitron rounded-lg border-2 border-danger-red shadow-[0_0_10px_rgba(239,68,68,0.2)] text-danger-red font-bold transition-all">MODO
+                VENTA</button>
+        </div>
+        <div class="space-y-5">
+            <div>
+                <label id="labelA" class="text-[9px] text-gray-500 uppercase">Monto a procesar
+                    (VES)</label>
+                <input type="number" id="vesInput" value="5000" oninput="convert('ves')"
+                    class="w-full bg-black/40 border border-white/10 p-3 rounded-xl focus:outline-none focus:border-yellow-500 transition-all font-bold text-white text-2xl font-mono">
+            </div>
+            <div class="flex justify-between items-center"><span class="text-[8px] text-gray-600 font-mono italic">TASA
+                    BRIDGE: <span id="appliedRate" class="text-yellow-500">0.00</span></span><span
+                    class="text-yellow-500">⇌</span></div>
+            <div>
+                <label id="labelB" class="text-[9px] text-gray-500 uppercase">Equivalente Real
+                    (USDT)</label>
+                <input type="number" id="usdInput" oninput="convert('usd')"
+                    class="w-full bg-transparent border-b border-white/10 p-2 text-xl font-mono text-cyan-400 font-bold outline-none">
             </div>
         </div>
+    </div>
 
-        <!-- Calculator -->
-        <div data-id="calculator" class="lg:col-span-4 glass p-6 border-l-4 border-yellow-500/50">
-            <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl">
-                <button id="modeBuy" onclick="setMode('buy')"
-                    class="flex-1 py-3 text-[10px] orbitron rounded-lg border-2 border-success-green shadow-[0_0_15px_rgba(34,197,94,0.3)] text-success-green font-bold transition-all">MODO
-                    COMPRA</button>
-                <button id="modeSell" onclick="setMode('sell')"
-                    class="flex-1 py-3 text-[10px] orbitron rounded-lg border border-white/10 text-gray-500 font-bold transition-all">MODO
-                    VENTA</button>
-            </div>
-            <div class="space-y-5">
-                <div>
-                    <label id="labelA" class="text-[9px] text-gray-500 uppercase">Monto a procesar
-                        (VES)</label>
-                    <input type="number" id="vesInput" value="5000" oninput="convert('ves')"
-                        class="w-full bg-black/40 border border-white/10 p-3 rounded-xl focus:outline-none focus:border-yellow-500 transition-all font-bold text-white text-2xl font-mono">
-                </div>
-                <div class="flex justify-between items-center"><span
-                        class="text-[8px] text-gray-600 font-mono italic">TASA BRIDGE: <span id="appliedRate"
-                            class="text-yellow-500">0.00</span></span><span class="text-yellow-500">⇌</span></div>
-                <div>
-                    <label id="labelB" class="text-[9px] text-gray-500 uppercase">Equivalente Real
-                        (USDT)</label>
-                    <input type="number" id="usdInput" oninput="convert('usd')"
-                        class="w-full bg-transparent border-b border-white/10 p-2 text-xl font-mono text-cyan-400 font-bold outline-none">
-                </div>
-            </div>
+    <!-- Order Book -->
+    <div data-id="orderbook" class="lg:col-span-8 glass p-6 flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="orbitron text-[10px] text-cyan-400 uppercase font-bold tracking-widest">Mejores
+                Anunciantes (Feed Bridge)</h3>
+            <div id="syncIndicator" class="hidden text-[8px] text-yellow-500 orbitron animate-pulse">📡
+                ACTUALIZANDO...</div>
         </div>
-
-        <!-- Order Book -->
-        <div data-id="orderbook" class="lg:col-span-5 glass p-6 flex flex-col">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="orbitron text-[10px] text-cyan-400 uppercase font-bold tracking-widest">Mejores
-                    Anunciantes (Feed Bridge)</h3>
-                <div id="syncIndicator" class="hidden text-[8px] text-yellow-500 orbitron animate-pulse">📡
-                    ACTUALIZANDO...</div>
-            </div>
-            <div class="overflow-y-auto max-height-[350px] min-h-[300px] scrollbar-hide">
-                <table class="w-full text-[11px] text-left border-separate border-spacing-y-2">
-                    <thead class="text-[8px] text-gray-500 uppercase sticky top-0 bg-[#0a0e14]">
-                        <tr>
-                            <th class="pb-1 px-2 font-normal">Merchant</th>
-                            <th class="pb-1 px-2 font-normal">Precio</th>
-                            <th class="pb-1 px-2 font-normal">Mín/Máx</th>
-                            <th class="pb-1 px-2 font-normal text-right">%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="orderBookBody">
-                        <tr class="bg-white/5 rounded-lg">
-                            <td colspan="4" class="p-8 text-center text-gray-500 uppercase text-[9px]">
-                                Iniciando Backend Bridge...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="overflow-y-auto max-height-[350px] min-h-[300px] scrollbar-hide">
+            <table class="w-full text-[11px] text-left border-separate border-spacing-y-2">
+                <thead class="text-[8px] text-gray-500 uppercase sticky top-0 bg-[#0a0e14]">
+                    <tr>
+                        <th class="pb-1 px-2 font-normal">Merchant</th>
+                        <th class="pb-1 px-2 font-normal">Precio</th>
+                        <th class="pb-1 px-2 font-normal">Mín/Máx</th>
+                        <th class="pb-1 px-2 font-normal text-right">%</th>
+                    </tr>
+                </thead>
+                <tbody id="orderBookBody">
+                    <tr class="bg-white/5 rounded-lg">
+                        <td colspan="4" class="p-8 text-center text-gray-500 uppercase text-[9px]">
+                            Iniciando Backend Bridge...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -461,7 +449,8 @@
             let newRows = '';
             relevantEntries.forEach((o, i) => {
                 newRows += `
-                    <tr class="bg-white/5 hover:bg-white/10 transition-all rounded-lg">
+                    <tr onclick="window.open('https://p2p.binance.com/en/advDetail/${o.adv.advNo}', '_blank')" 
+                        class="bg-white/5 hover:bg-white/10 transition-all rounded-lg cursor-pointer">
                         <td class="p-2 px-3 rounded-l-lg"><span class="text-white font-bold">${o.advertiser.nickName}</span></td>
                         <td class="p-2 px-3 text-cyan-400 font-mono">${parseFloat(o.adv.price).toFixed(precision)}</td>
                         <td class="p-2 px-3 text-gray-500 text-[9px]">${parseFloat(o.adv.minSingleTransAmount).toLocaleString()} - ${parseFloat(o.adv.maxSingleTransAmount).toLocaleString()}</td>
