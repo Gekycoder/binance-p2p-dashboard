@@ -38,7 +38,6 @@
             user-select: text !important;
             -webkit-user-select: text !important;
         }
-        }
 
         .orbitron {
             font-family: 'Orbitron', sans-serif;
@@ -467,7 +466,7 @@
                 let newRows = '';
                 relevantEntries.forEach((o, i) => {
                     newRows += `
-                    <tr onclick="window.open('https://p2p.binance.com/en/advDetail?code=${o.adv.advNo}', '_blank')" 
+                    <tr onclick="window.open('https://p2p.binance.com/en/advertiserDetail?advertiserNo=${o.advertiser.userNo}', '_blank')" 
                         class="bg-white/5 hover:bg-white/10 transition-all rounded-lg cursor-pointer">
                         <td class="p-2 px-3 rounded-l-lg"><span class="text-white font-bold">${o.advertiser.nickName}</span></td>
                         <td class="p-2 px-3 text-cyan-400 font-mono">${parseFloat(o.adv.price).toFixed(precision)}</td>
