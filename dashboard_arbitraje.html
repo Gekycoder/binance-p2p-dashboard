@@ -14,6 +14,7 @@
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
         :root {
             --neon-green: #00ff88;
@@ -548,23 +549,39 @@
                 const range = document.getElementById('timeRange').value;
                 let labels = [], dP2PVenta = [], dP2PCompra = [], dBCV = [];
 
+                function getVzlaTime(offsetHours = 0) {
+                    const now = new Date();
+                    const vzla = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) - (4 * 3600000) + (offsetHours * 3600000));
+                    return vzla.getHours().toString().padStart(2, '0') + ':' + vzla.getMinutes().toString().padStart(2, '0');
+                }
+
                 if (range === '24h') {
-                    labels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', 'Ahora'];
-                    labels.forEach(() => {
-                        dBCV.push(currentBCV);
-                        dP2PVenta.push(currentBid + (Math.random() * 2 - 1));
-                        dP2PCompra.push(currentAsk + (Math.random() * 2 - 1));
+                    for (let i = 6; i >= 1; i--) {
+                        labels.push(getVzlaTime(-i * 4));
+                    }
+                    labels.push(getVzlaTime() + ' (Hoy)');
+
+                    labels.forEach((_, idx) => {
+                        const isLast = idx === labels.length - 1;
+                        dBCV.push(isLast ? currentBCV : currentBCV - (Math.random() * 0.5));
+                        dP2PVenta.push(isLast ? currentBid : currentBid + (Math.random() * 2 - 1));
+                        dP2PCompra.push(isLast ? currentAsk : currentAsk + (Math.random() * 2 - 1));
                     });
                 } else if (range === '30d') {
                     for (let i = 30; i >= 0; i -= 3) labels.push(i + 'd');
                     labels.reverse();
-                    labels.forEach(() => {
-                        dBCV.push(currentBCV - (Math.random() * 5));
-                        dP2PVenta.push(currentBid - (Math.random() * 15));
-                        dP2PCompra.push(currentAsk - (Math.random() * 15));
+                    labels.forEach((_, idx) => {
+                        const isLast = idx === labels.length - 1;
+                        dBCV.push(isLast ? currentBCV : currentBCV - (Math.random() * 5));
+                        dP2PVenta.push(isLast ? currentBid : currentBid - (Math.random() * 15));
+                        dP2PCompra.push(isLast ? currentAsk : currentAsk - (Math.random() * 15));
                     });
                 } else {
-                    labels = histDates; dBCV = histBCV; dP2PVenta = histP2P; dP2PCompra = histP2PBuy;
+                    labels = histDates; dBCV = [...histBCV]; dP2PVenta = [...histP2P]; dP2PCompra = [...histP2PBuy];
+                    // Asegurar que el último punto sea el real
+                    dBCV[dBCV.length - 1] = currentBCV;
+                    dP2PVenta[dP2PVenta.length - 1] = currentBid;
+                    dP2PCompra[dP2PCompra.length - 1] = currentAsk;
                 }
 
                 mainChart.data.labels = labels;
@@ -629,7 +646,25 @@
                             { label: 'BCV Oficial', data: histBCV, borderColor: '#06b6d4', borderDash: [5, 5], fill: false, tension: 0.1 }
                         ]
                     },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#1f2937' }, ticks: { color: '#6b7280' } } }, plugins: { legend: { labels: { color: '#e0e6ed' } } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { grid: { color: '#1f2937' }, ticks: { color: '#6b7280' } } },
+                        plugins: {
+                            legend: { labels: { color: '#e0e6ed' } },
+                            zoom: {
+                                zoom: {
+                                    wheel: { enabled: true },
+                                    pinch: { enabled: true },
+                                    mode: 'x',
+                                },
+                                pan: {
+                                    enabled: true,
+                                    mode: 'x',
+                                }
+                            }
+                        }
+                    }
                 });
             }
 
