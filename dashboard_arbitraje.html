@@ -14,6 +14,7 @@
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
         :root {
@@ -549,24 +550,27 @@
                 const range = document.getElementById('timeRange').value;
                 let labels = [], dP2PVenta = [], dP2PCompra = [], dBCV = [];
 
-                function getVzlaTime(offsetHours = 0) {
+                function getVzlaTime(offsetMinutes = 0) {
                     const now = new Date();
-                    const vzla = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) - (4 * 3600000) + (offsetHours * 3600000));
-                    return vzla.getHours().toString().padStart(2, '0') + ':' + vzla.getMinutes().toString().padStart(2, '0');
+                    const vzla = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) - (4 * 3600000) + (offsetMinutes * 60000));
+                    const h = vzla.getHours().toString().padStart(2, '0');
+                    const m = vzla.getMinutes().toString().padStart(2, '0');
+                    return `${h}:${m}`;
                 }
 
                 if (range === '24h') {
-                    for (let i = 6; i >= 1; i--) {
-                        labels.push(getVzlaTime(-i * 4));
-                    }
-                    labels.push(getVzlaTime() + ' (Hoy)');
+                    // 24 horas * 4 (puntos por hora de 15 min) = 96 puntos
+                    for (let i = 96; i >= 0; i--) {
+                        const minOffset = -i * 15;
+                        const label = (i % 4 === 0) ? getVzlaTime(minOffset) : '';
+                        labels.push(label + (i === 0 ? ' (Hoy)' : ''));
 
-                    labels.forEach((_, idx) => {
-                        const isLast = idx === labels.length - 1;
-                        dBCV.push(isLast ? currentBCV : currentBCV - (Math.random() * 0.5));
-                        dP2PVenta.push(isLast ? currentBid : currentBid + (Math.random() * 2 - 1));
-                        dP2PCompra.push(isLast ? currentAsk : currentAsk + (Math.random() * 2 - 1));
-                    });
+                        const isLast = i === 0;
+                        const drift = (Math.random() * 0.4 - 0.2);
+                        dBCV.push(isLast ? currentBCV : currentBCV + drift * 0.1);
+                        dP2PVenta.push(isLast ? currentBid : currentBid + drift);
+                        dP2PCompra.push(isLast ? currentAsk : currentAsk + drift);
+                    }
                 } else if (range === '30d') {
                     for (let i = 30; i >= 0; i -= 3) labels.push(i + 'd');
                     labels.reverse();
@@ -657,10 +661,12 @@
                                     wheel: { enabled: true },
                                     pinch: { enabled: true },
                                     mode: 'x',
+                                    drag: { enabled: false }
                                 },
                                 pan: {
                                     enabled: true,
                                     mode: 'x',
+                                    threshold: 10
                                 }
                             }
                         }
