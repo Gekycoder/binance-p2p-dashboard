@@ -487,67 +487,10 @@
                 histBCV[histBCV.length - 1] = currentBCV;
                 if (mainChart) mainChart.update('none');
 
-                updateVerdictLogic(spread);
+                refreshAnalytics();
                 convert('ves');
             }
 
-            function updateVerdictLogic(spread) {
-                const range = document.getElementById('timeRange').value;
-                const fiat = document.getElementById('fiatSelect').value;
-                const data = mainChart.data.datasets[0].data;
-                const avg = data.reduce((a, b) => a + b, 0) / data.length;
-                const current = opMode === 'sell' ? currentBid : currentAsk;
-
-                let label = "";
-                let reason = "";
-                let color = "";
-                let score = 50;
-
-                // Ajuste de sensibilidad según moneda
-                // En USD un spread de 1.5% ya es una gran oportunidad.
-                const threshold = (fiat === 'USD' ? 1.5 : (fiat === 'COP' ? 3.0 : 15.0));
-
-                if (opMode === 'buy') {
-                    if (current <= avg) {
-                        label = "Oportunidad de Compra";
-                        color = "#00ff88";
-                        score = 25;
-                        reason = `Buen precio en ${fiat}: hoy estás comprando por debajo del promedio de ${range}.`;
-                    } else {
-                        label = "Espera una mejor tasa";
-                        color = "#f59e0b";
-                        score = 45;
-                        reason = `El precio de compra en ${fiat} está un poco alto respecto al promedio reciente.`;
-                    }
-                } else {
-                    if (spread > threshold) {
-                        label = "Excelente para Vender";
-                        color = "#00ff88";
-                        score = 75;
-                        reason = `¡Spread alto! Estás recibiendo un ${spread.toFixed(1)}% por encima de la tasa ${fiat === 'USD' ? 'par' : 'oficial'}.`;
-                    } else {
-                        label = "Tasa de Mercado Normal";
-                        color = "#6b7280";
-                        score = 55;
-                        reason = `El spread en ${fiat} es estable. No hay una distorsión masiva que aprovechar ahora.`;
-                    }
-                }
-
-                updateGaugeVisual(score, label, reason, color);
-            }
-
-            function updateGaugeVisual(v, label, subtext, color) {
-                v = Math.max(10, Math.min(90, v));
-                document.getElementById('verdictLabel').innerText = label;
-                document.getElementById('verdictLabel').style.color = color;
-                document.getElementById('verdictSub').innerText = subtext;
-
-                if (gaugeChart) {
-                    gaugeChart.data.datasets[0].data = [v, 100 - v];
-                    gaugeChart.data.datasets[0].backgroundColor = [color, '#1f2937'];
-                    gaugeChart.update();
-                }
-            }
 
             let detailDateRef = null;
 
@@ -581,6 +524,7 @@
                     mainChart.data.datasets[1].data = dP2PCompra;
                     mainChart.data.datasets[2].data = dBCV;
                     mainChart.update();
+                    refreshAnalytics();
                 } else if (range === 'detail' && detailDateRef) {
                     // Generar detalle para un día específico del pasado
                     fetch(`${BRIDGE_URL}/history?days=90`)
@@ -608,6 +552,7 @@
                             mainChart.data.datasets[1].data = dP2PCompra;
                             mainChart.data.datasets[2].data = dBCV;
                             mainChart.update();
+                            refreshAnalytics();
                         });
                 } else {
                     // Cargar datos reales desde el Bridge
@@ -624,6 +569,7 @@
                             mainChart.data.datasets[1].data[lastIdx] = currentAsk;
                             mainChart.data.datasets[2].data[lastIdx] = currentBCV;
                             mainChart.update();
+                            refreshAnalytics();
                         })
                         .catch(() => {
                             labels = histDates; dBCV = [...histBCV]; dP2PVenta = [...histP2P]; dP2PCompra = [...histP2PBuy];
@@ -647,6 +593,7 @@
                     bS.className = "flex-1 py-1.5 text-[9px] orbitron rounded-lg border border-white/10 text-gray-500 font-bold";
                 }
                 updateData();
+                refreshAnalytics();
             }
 
             function convert(src) {
@@ -654,29 +601,64 @@
                 if (src === 'ves') u.value = (v.value / r).toFixed(2); else v.value = (u.value * r).toFixed(2);
             }
 
-            function updateGauge(v, trend) {
+            function updateGauge(v, range, min, max, price) {
                 v = Math.max(5, Math.min(95, v));
-                const c = v > 70 ? '#ef4444' : (v < 30 ? '#00ff88' : '#f59e0b');
+                const color = v > 70 ? '#ef4444' : (v < 30 ? '#00ff88' : '#f59e0b');
                 const lbl = document.getElementById('verdictLabel');
                 const sub = document.getElementById('verdictSub');
 
-                if (v > 70) {
-                    lbl.innerText = "VENTA FUERTE";
-                    sub.innerText = trend > 0 ? "PRECIO EN MÁXIMOS + ALZA" : "BUEN SPREAD DE SALIDA";
-                } else if (v < 30) {
-                    lbl.innerText = "COMPRA FUERTE";
-                    sub.innerText = trend < 0 ? "CAÍDA DE PRECIO: OPORTUNIDAD" : "ZONA DE ACUMULACIÓN";
+                let rangeText = range === '90d' ? '3 meses' : (range === '30d' ? '30 días' : (range === '7d' ? '7 días' : '24 horas'));
+                if (range === 'detail') rangeText = 'el día seleccionado';
+
+                if (opMode === 'sell') {
+                    // LÓGICA PARA VENDEDORES (Queremos vender caro)
+                    if (v > 75) {
+                        lbl.innerText = "¡VENTA IDEAL!";
+                        sub.innerText = `El precio está en los puntos más altos de los últimos ${rangeText}. Aprovecha para asegurar ganancias máximas ahora.`;
+                    } else if (v < 25) {
+                        lbl.innerText = "EVITAR VENTA";
+                        sub.innerText = `El precio está en sus puntos mínimos de los últimos ${rangeText}. Si vendes ahora ganarás menos que en el promedio.`;
+                    } else {
+                        lbl.innerText = "VENTA NEUTRAL";
+                        sub.innerText = `Precio estable respecto a los últimos ${rangeText}. Operación segura, pero sin ganancias extraordinarias.`;
+                    }
                 } else {
-                    lbl.innerText = "NEUTRAL / ESPERAR";
-                    sub.innerText = "MERCADO EN EQUILIBRIO";
+                    // LÓGICA PARA COMPRADORES (Queremos comprar barato)
+                    if (v < 25) {
+                        lbl.innerText = "¡COMPRA DE ORO!";
+                        sub.innerText = `El dólar está en sus puntos más baratos de los últimos ${rangeText}. Oportunidad ideal para comprar y acumular.`;
+                    } else if (v > 75) {
+                        lbl.innerText = "EVITAR COMPRA";
+                        sub.innerText = `Estás comprando cerca de los precios más caros de los últimos ${rangeText}. Riesgo alto de pagar sobreprecio.`;
+                    } else {
+                        lbl.innerText = "COMPRA NEUTRAL";
+                        sub.innerText = `Valor de mercado justo para los últimos ${rangeText}. No es una oferta única, pero el precio es razonable.`;
+                    }
                 }
 
-                lbl.style.color = c;
+                lbl.style.color = color;
                 if (gaugeChart) {
                     gaugeChart.data.datasets[0].data = [v, 100 - v];
-                    gaugeChart.data.datasets[0].backgroundColor = [c, '#1f2937'];
+                    gaugeChart.data.datasets[0].backgroundColor = [color, '#1f2937'];
                     gaugeChart.update();
                 }
+            }
+
+            function refreshAnalytics() {
+                if (!mainChart || !mainChart.data.datasets[0].data.length) return;
+                const range = document.getElementById('timeRange').value;
+                const data = mainChart.data.datasets[0].data.filter(v => typeof v === 'number' && v > 0);
+                if (data.length === 0) return;
+
+                const min = Math.min(...data);
+                const max = Math.max(...data);
+                const price = (opMode === 'sell' ? currentBid : currentAsk);
+
+                let percentile = 50;
+                if (max > min) {
+                    percentile = ((price - min) / (max - min)) * 100;
+                }
+                updateGauge(percentile, range, min, max, price);
             }
 
             function init() {
