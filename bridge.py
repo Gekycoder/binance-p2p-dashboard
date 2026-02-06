@@ -5,8 +5,27 @@ import urllib.request
 import urllib.error
 import random
 import os
+import re
+import ssl
 
 PORT = int(os.environ.get('PORT', 5001))
+
+def get_official_bcv():
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        url = "https://www.bcv.org.ve/"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, context=ctx, timeout=8) as res:
+            html = res.read().decode('utf-8')
+            match = re.search(r'id="dolar".*?<strong>\s*([\d,.]+)\s*</strong>', html, re.DOTALL)
+            if match:
+                return float(match.group(1).replace(',', '.'))
+    except Exception as e:
+        print(f"Error Scraper BCV: {e}")
+    return None
 
 class BinanceBridge(http.server.BaseHTTPRequestHandler):
     def _send_json(self, data, status=200):
@@ -46,12 +65,18 @@ class BinanceBridge(http.server.BaseHTTPRequestHandler):
         elif self.path == '/sw.js':
             self._serve_file('sw.js', 'application/javascript')
         elif 'oficial' in self.path:
-            try:
-                with urllib.request.urlopen("https://criptoya.com/api/bcv") as res:
-                    val = json.loads(res.read())
-                    self._send_json({"promedio": float(val)})
-            except:
-                self._send_json({"promedio": 378.45})
+            # PRIORIDAD: BCV OFICIAL DIRECTO
+            bcv_val = get_official_bcv()
+            if bcv_val:
+                self._send_json({"promedio": bcv_val})
+            else:
+                # FALLBACK: CRIPTOYA
+                try:
+                    with urllib.request.urlopen("https://criptoya.com/api/bcv") as res:
+                        val = json.loads(res.read())
+                        self._send_json({"promedio": float(val)})
+                except:
+                    self._send_json({"promedio": 381.10}) # Hardcoded fallback if all fails
         elif 'trm' in self.path:
             try:
                 with urllib.request.urlopen("https://criptoya.com/api/dolarapi/trm") as res:
