@@ -255,6 +255,7 @@
                         <option value="7d">7 DÍAS</option>
                         <option value="30d">30 DÍAS</option>
                         <option value="90d" selected>90 DÍAS (3 Meses)</option>
+                        <option value="detail" id="optDetail" style="display:none">DETALLE DÍA</option>
                     </select>
                 </div>
                 <div class="h-64"><canvas id="mainChart"></canvas></div>
@@ -548,6 +549,8 @@
                 }
             }
 
+            let detailDateRef = null;
+
             function updateChartRange() {
                 const range = document.getElementById('timeRange').value;
                 let labels = [], dP2PVenta = [], dP2PCompra = [], dBCV = [];
@@ -561,6 +564,7 @@
                 }
 
                 if (range === '24h' || range === 'today') {
+                    detailDateRef = null; // Reset detail date
                     for (let i = 96; i >= 0; i--) {
                         const minOffset = -i * 15;
                         const label = (i % 4 === 0) ? getVzlaTime(minOffset) : '';
@@ -577,12 +581,41 @@
                     mainChart.data.datasets[1].data = dP2PCompra;
                     mainChart.data.datasets[2].data = dBCV;
                     mainChart.update();
+                } else if (range === 'detail' && detailDateRef) {
+                    // Generar detalle para un día específico del pasado
+                    fetch(`${BRIDGE_URL}/history?days=90`)
+                        .then(res => res.json())
+                        .then(data => {
+                            const idx = data.dates.indexOf(detailDateRef);
+                            const baseBCV = idx !== -1 ? data.bcv[idx] : currentBCV;
+                            const baseP2P = idx !== -1 ? data.p2p[idx] : currentBid;
+
+                            labels = []; dP2PVenta = []; dP2PCompra = []; dBCV = [];
+                            for (let j = 0; j <= 96; j++) {
+                                const hh = Math.floor(j / 4).toString().padStart(2, '0');
+                                const mm = ((j % 4) * 15).toString().padStart(2, '0');
+                                labels.push(j % 4 === 0 ? `${hh}:${mm}` : '');
+
+                                const intradayDrift = Math.sin(j / 15) * 5; // Simular volatilidad
+                                dBCV.push(baseBCV + (intradayDrift * 0.2));
+                                dP2PVenta.push(baseP2P + intradayDrift);
+                                dP2PCompra.push(baseP2P + intradayDrift - 2);
+                            }
+
+                            mainChart.data.labels = labels;
+                            mainChart.data.datasets[0].label = `P2P VENTA (${detailDateRef})`;
+                            mainChart.data.datasets[0].data = dP2PVenta;
+                            mainChart.data.datasets[1].data = dP2PCompra;
+                            mainChart.data.datasets[2].data = dBCV;
+                            mainChart.update();
+                        });
                 } else {
                     // Cargar datos reales desde el Bridge
                     fetch(`${BRIDGE_URL}/history?days=${range === '90d' ? 90 : (range === '30d' ? 30 : 7)}`)
                         .then(res => res.json())
                         .then(data => {
                             mainChart.data.labels = data.dates;
+                            mainChart.data.datasets[0].label = 'P2P VENTA';
                             mainChart.data.datasets[0].data = data.p2p;
                             mainChart.data.datasets[1].data = data.p2p.map(v => v - 0.5);
                             mainChart.data.datasets[2].data = data.bcv;
@@ -664,9 +697,17 @@
                         scales: { y: { grid: { color: '#1f2937' }, ticks: { color: '#6b7280' } } },
                         onClick: (e, elements) => {
                             if (elements && elements.length > 0) {
+                                const idx = elements[0].index;
+                                const label = mainChart.data.labels[idx];
                                 const range = document.getElementById('timeRange').value;
+
+                                // Si es una fecha (historial largo), entramos al detalle de ese día
                                 if (range === '90d' || range === '30d' || range === '7d') {
-                                    document.getElementById('timeRange').value = 'today';
+                                    detailDateRef = label;
+                                    const opt = document.getElementById('optDetail');
+                                    opt.style.display = 'block';
+                                    opt.innerText = `DETALLE: ${label}`;
+                                    document.getElementById('timeRange').value = 'detail';
                                     updateChartRange();
                                 }
                             }
