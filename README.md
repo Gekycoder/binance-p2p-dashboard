@@ -41,4 +41,3 @@ Consulta la [GUIA_NUBE.md](./GUIA_NUBE.md) para ver los pasos detallados de cóm
 
 ## ⚠️ Descargo de Responsabilidad
 Este software es una herramienta de visualización y análisis. El trading de criptomonedas y las operaciones P2P conllevan riesgos financieros. El autor no se hace responsable por pérdidas derivadas del uso de esta herramienta.
-
