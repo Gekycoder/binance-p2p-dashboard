@@ -252,8 +252,9 @@
                         class="bg-black/40 border border-white/10 text-[9px] orbitron p-1 rounded text-cyan-400 focus:outline-none">
                         <option value="today">HOY (Detalle)</option>
                         <option value="24h">24 HORAS</option>
-                        <option value="7d" selected>7 DÍAS</option>
+                        <option value="7d">7 DÍAS</option>
                         <option value="30d">30 DÍAS</option>
+                        <option value="90d" selected>90 DÍAS (3 Meses)</option>
                     </select>
                 </div>
                 <div class="h-64"><canvas id="mainChart"></canvas></div>
@@ -560,7 +561,6 @@
                 }
 
                 if (range === '24h' || range === 'today') {
-                    // 24 horas * 4 (puntos por hora de 15 min) = 96 puntos
                     for (let i = 96; i >= 0; i--) {
                         const minOffset = -i * 15;
                         const label = (i % 4 === 0) ? getVzlaTime(minOffset) : '';
@@ -572,28 +572,35 @@
                         dP2PVenta.push(isLast ? currentBid : currentBid + drift);
                         dP2PCompra.push(isLast ? currentAsk : currentAsk + drift);
                     }
-                } else if (range === '30d') {
-                    for (let i = 30; i >= 0; i -= 3) labels.push(i + 'd');
-                    labels.reverse();
-                    labels.forEach((_, idx) => {
-                        const isLast = idx === labels.length - 1;
-                        dBCV.push(isLast ? currentBCV : currentBCV - (Math.random() * 5));
-                        dP2PVenta.push(isLast ? currentBid : currentBid - (Math.random() * 15));
-                        dP2PCompra.push(isLast ? currentAsk : currentAsk - (Math.random() * 15));
-                    });
+                    mainChart.data.labels = labels;
+                    mainChart.data.datasets[0].data = dP2PVenta;
+                    mainChart.data.datasets[1].data = dP2PCompra;
+                    mainChart.data.datasets[2].data = dBCV;
+                    mainChart.update();
                 } else {
-                    labels = histDates; dBCV = [...histBCV]; dP2PVenta = [...histP2P]; dP2PCompra = [...histP2PBuy];
-                    // Asegurar que el último punto sea el real
-                    dBCV[dBCV.length - 1] = currentBCV;
-                    dP2PVenta[dP2PVenta.length - 1] = currentBid;
-                    dP2PCompra[dP2PCompra.length - 1] = currentAsk;
+                    // Cargar datos reales desde el Bridge
+                    fetch(`${BRIDGE_URL}/history?days=${range === '90d' ? 90 : (range === '30d' ? 30 : 7)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            mainChart.data.labels = data.dates;
+                            mainChart.data.datasets[0].data = data.p2p;
+                            mainChart.data.datasets[1].data = data.p2p.map(v => v - 0.5);
+                            mainChart.data.datasets[2].data = data.bcv;
+                            const lastIdx = data.bcv.length - 1;
+                            mainChart.data.datasets[0].data[lastIdx] = currentBid;
+                            mainChart.data.datasets[1].data[lastIdx] = currentAsk;
+                            mainChart.data.datasets[2].data[lastIdx] = currentBCV;
+                            mainChart.update();
+                        })
+                        .catch(() => {
+                            labels = histDates; dBCV = [...histBCV]; dP2PVenta = [...histP2P]; dP2PCompra = [...histP2PBuy];
+                            mainChart.data.labels = labels;
+                            mainChart.data.datasets[0].data = dP2PVenta;
+                            mainChart.data.datasets[1].data = dP2PCompra;
+                            mainChart.data.datasets[2].data = dBCV;
+                            mainChart.update();
+                        });
                 }
-
-                mainChart.data.labels = labels;
-                mainChart.data.datasets[0].data = dP2PVenta;
-                mainChart.data.datasets[1].data = dP2PCompra;
-                mainChart.data.datasets[2].data = dBCV;
-                mainChart.update();
             }
 
             function setMode(mode) {
@@ -658,7 +665,7 @@
                         onClick: (e, elements) => {
                             if (elements && elements.length > 0) {
                                 const range = document.getElementById('timeRange').value;
-                                if (range === '30d' || range === '7d') {
+                                if (range === '90d' || range === '30d' || range === '7d') {
                                     document.getElementById('timeRange').value = 'today';
                                     updateChartRange();
                                 }
